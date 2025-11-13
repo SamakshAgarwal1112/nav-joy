@@ -46,12 +46,37 @@ async def root():
 
 def gemini_transcribe(audio_path):
     model = genai.GenerativeModel("models/gemini-2.5-flash")
+    prompt = """
+    You are an information extraction engine. 
+    Given a user's spoken question about hospitals, extract ONLY the entities
+    and output valid JSON.
+
+    STRICT RULES:
+    - Output ONLY RAW JSON.
+    - DO NOT wrap JSON in ``` or ```json or any code block.
+    - DO NOT add commentary.
+    - DO NOT answer the question.
+    - DO NOT include markdown.
+    - The FIRST character of your response MUST be '['.
+    - If city/hospital/address not mentioned → use null.
+    - If city is Bangalore, convert it to bengaluru.
+
+    Return JSON EXACTLY like this:
+    [
+    {
+        "city": string or null,
+        "hospital": string or null,
+        "address": string or null
+    }
+    ]
+    """
 
     with open(audio_path, "rb") as f:
         audio_bytes = f.read()
 
     response = model.generate_content(
         [
+            prompt,
             {
                 "mime_type": "audio/wav",
                 "data": audio_bytes,
@@ -79,6 +104,8 @@ async def process_voice(audio: UploadFile = File(...)):
             temp_audio.write(content)
             temp_audio_path = temp_audio.name
 
+        print("Temp Audio Path", temp_audio_path)
+
         user_query = gemini_transcribe(temp_audio_path)
         # with open(temp_audio_path, "rb") as audio_file:
         #     transcript = openai.audio.transcriptions.create(
@@ -88,7 +115,7 @@ async def process_voice(audio: UploadFile = File(...)):
         #     )
         
         # user_query = transcript.text
-        print(f"Transcribed: {user_query}")
+        print(f"User Query: {user_query}")
 
         retriever = get_retriever()
         results = retriever.query(user_query)

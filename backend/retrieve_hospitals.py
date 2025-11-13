@@ -1,5 +1,6 @@
 import faiss
 import pickle
+import json
 from sentence_transformers import SentenceTransformer
 from config import FAISS_INDEX_PATH, METADATA_PATH, EMBEDDING_MODEL, TOP_K_RESULTS
 
@@ -14,36 +15,44 @@ class HospitalRetriever:
         print("Loading embedding model...")
         self.model = SentenceTransformer(EMBEDDING_MODEL)
         
-        print(f"✓ Retriever ready with {len(self.metadata)} hospitals")
-    
+        print(f"Retriever ready with {len(self.metadata)} hospitals")
+
     def extract_entities(self, query):
-        query_lower = query.lower()
-        entities = {'city': None, 'hospital_name': None}
-        
-        for meta in self.metadata:
-            city = meta['city']
-            if city and len(city) > 2 and city in query_lower:
-                entities['city'] = city
-                break
-        
-        for meta in self.metadata:
-            hospital = meta['hospital_name']
-            if hospital and len(hospital) > 3:
-                if hospital in query_lower or any(word in query_lower for word in hospital.split() if len(word) > 4):
-                    entities['hospital_name'] = hospital
-                    break
-        
-        return entities
+
+        try:
+            data = json.loads(query)
+        except Exception as e:
+            print("JSON extraction failed:", e)
+            return {"city": None, "hospital_name": None}
+
+        if not isinstance(data, list) or len(data) == 0:
+            return {"city": None, "hospital_name": None}
+
+        obj = data[0]
+
+        city = obj.get("city")
+        hospital = obj.get("hospital")
+        # address = obj.get("address")
+
+        return {
+            "city": city if city else None,
+            "hospital_name": hospital if hospital else None
+        }
     
     def exact_match(self, hospital_name, city = None):
         results = []
         
         for meta in self.metadata:
-            name_match = hospital_name and hospital_name in meta['hospital_name']
-            city_match = not city or city in meta['city']
-            
-            if name_match and city_match:
-                results.append(meta)
+            if city is not None:
+                city_match = str(city).lower() in str(meta['city']).lower()
+                if city_match:
+                    name_match = not hospital_name or str(hospital_name).lower() in str(meta['hospital_name']).lower()
+                    if city_match and name_match:
+                        results.append(meta)
+            else:
+                name_match = hospital_name and str(hospital_name).lower() in str(meta['hospital_name']).lower()
+                if name_match:
+                    results.append(meta)
         
         return results
     
@@ -74,20 +83,21 @@ class HospitalRetriever:
         
         entities = self.extract_entities(user_query)
         print(f"Entities: {entities}")
+        hospital_name = entities.get("hospital_name")
+        city = entities.get("city")
         
-        if entities['hospital_name']:
-            exact_results = self.exact_match(
-                entities['hospital_name'], 
-                entities['city']
-            )
+        if hospital_name or city:
+            exact_results = self.exact_match(hospital_name, city)
             if exact_results:
                 print(f"Found {len(exact_results)} exact matches")
                 return exact_results[:TOP_K_RESULTS]
+            
+        search_query = hospital_name or city or user_query
         
         semantic_results = self.semantic_search(
-            user_query, 
+            search_query, 
             top_k=TOP_K_RESULTS,
-            city_filter=entities['city']
+            city_filter=city
         )
         
         return semantic_results
