@@ -1,5 +1,6 @@
 import faiss
 import pickle
+import re
 import json
 from sentence_transformers import SentenceTransformer
 from config import FAISS_INDEX_PATH, METADATA_PATH, EMBEDDING_MODEL, TOP_K_RESULTS
@@ -17,10 +18,30 @@ class HospitalRetriever:
         
         print(f"Retriever ready with {len(self.metadata)} hospitals")
 
+    @staticmethod
+    def safe_load_json(text):
+        if not text or not isinstance(text, str):
+            raise ValueError("Invalid text for JSON extraction")
+
+        cleaned = text.strip()
+        cleaned = re.sub(r"```(?:json)?", "", cleaned, flags=re.IGNORECASE)
+        cleaned = cleaned.replace("```", "")
+        cleaned = cleaned.replace("`", "")
+        cleaned = cleaned.strip()
+
+
+        if "[" in cleaned:
+            cleaned = cleaned[cleaned.index("["):]
+
+        if "]" in cleaned:
+            cleaned = cleaned[:cleaned.rindex("]") + 1]
+
+        return json.loads(cleaned)
+
     def extract_entities(self, query):
 
         try:
-            data = json.loads(query)
+            data = self.safe_load_json(query)
         except Exception as e:
             print("JSON extraction failed:", e)
             return {"city": None, "hospital_name": None}
@@ -67,7 +88,7 @@ class HospitalRetriever:
             if idx < len(self.metadata):
                 meta = self.metadata[idx]
                 
-                if city_filter and city_filter not in meta['city']:
+                if city_filter and str(city_filter).lower() not in str(meta['city']).lower():
                     continue
                 
                 meta_with_score = meta.copy()
@@ -86,11 +107,11 @@ class HospitalRetriever:
         hospital_name = entities.get("hospital_name")
         city = entities.get("city")
         
-        if hospital_name or city:
-            exact_results = self.exact_match(hospital_name, city)
-            if exact_results:
-                print(f"Found {len(exact_results)} exact matches")
-                return exact_results[:TOP_K_RESULTS]
+        # if hospital_name or city:
+        #     exact_results = self.exact_match(hospital_name, city)
+        #     if exact_results:
+        #         print(f"Found {len(exact_results)} exact matches")
+        #         return exact_results[:TOP_K_RESULTS]
             
         search_query = hospital_name or city or user_query
         
