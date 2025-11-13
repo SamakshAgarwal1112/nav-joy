@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Mic, MicOff, Loader2, Volume2 } from 'lucide-react';
+import { sendVoiceQuery } from '@/lib/api';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -60,6 +61,7 @@ export default function VoiceInterface() {
         
         stream.getTracks().forEach(track => track.stop());
         
+        await processAudio(audioBlob);
       };
 
       mediaRecorder.start();
@@ -76,6 +78,47 @@ export default function VoiceInterface() {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
+    }
+  };
+
+  const processAudio = async (audioBlob: Blob) => {
+    setIsProcessing(true);
+    setError(null);
+
+    try {
+      const result = await sendVoiceQuery(audioBlob);
+
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'user',
+          text: result.transcribedText,
+          timestamp: new Date(),
+        },
+      ]);
+
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'assistant',
+          text: result.responseText,
+          timestamp: new Date(),
+        },
+      ]);
+
+      if (audioRef.current) {
+        audioRef.current.src = result.audioUrl;
+        await audioRef.current.play();
+      }
+
+    } catch (err: any) {
+      console.error('Error processing audio:', err);
+      setError(
+        err.response?.data?.detail || 
+        'Failed to process your query. Please try again.'
+      );
+    } finally {
+      setIsProcessing(false);
     }
   };
 
