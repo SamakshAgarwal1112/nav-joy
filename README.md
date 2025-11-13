@@ -29,3 +29,53 @@ This system converts user voice into structured JSON, performs retrieval, and re
 ## Full Voice Pipeline
 
 Audio → Gemini → JSON → Retrieval → Answer → MP3
+
+## Installation
+
+1. Clone the repository
+```
+git clone <repo-url>
+cd backend
+```
+
+2. Make a virtual environment
+
+3. Install dependencies
+```
+pip install -r requirements.txt
+```
+
+4. Add .env file to the root
+
+Create a .env file:
+```
+GEMINI_API_KEY=your_api_key_here
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
+
+5. Build FAISS Index (Important step)
+```
+python build_faiss_index.py
+```
+
+This generates:
+- hospital_faiss.index
+- hospital_metadata.pkl
+
+These files must exist for the server to respond to queries.
+
+6. Running the Server
+```
+uvicorn main:app --reload --port 8000
+```
+
+7. Go to frontend directory. Open a new terminal.
+```
+cd frontend
+```
+
+8. Install dependencies and run client
+```
+npm i
+npm run dev
+```
