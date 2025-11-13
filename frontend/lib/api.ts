@@ -42,3 +42,8 @@ export const sendVoiceQuery = async (audioBlob: Blob): Promise<{
     hospitalsFound,
   };
 };
+
+export const checkHealth = async (): Promise<HealthResponse> => {
+  const response = await axios.get<HealthResponse>(`${API_BASE_URL}/health`);
+  return response.data;
+};
