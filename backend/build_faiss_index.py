@@ -44,9 +44,9 @@ def build_faiss_index():
         
         meta = {
             'id': idx,
-            'hospital_name': row.get('Hospital Name', ''),
+            'hospital_name': row.get('HOSPITAL NAME', ''),
             'address': row.get('Address', ''),
-            'city': row.get('City', ''),
+            'city': row.get('CITY', ''),
             'chunk_text': chunk_text
         }
         metadata.append(meta)
